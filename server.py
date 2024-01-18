@@ -1,58 +1,70 @@
 import socket
 import threading
-import tkinter as tk
-from tkinter import ttk
+from tkinter import *
 
-HOST = '192.168.56.1'
-PORT = 9999
-LISTENER_LIMIT = 5
-server_running = False
-status_var = None
+class ServerForm:
+    def __init__(self):
+        self.root = Tk()
+        self.root.title("Server Form")
 
-def start_server():
-    global server_running
-    server_running = True
+        self.btn_send = Button(self.root, text="Send", command=self.send_message)
+        self.btn_send.pack()
 
-    server = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
+        self.txt_input_field = Entry(self.root)
+        self.txt_input_field.pack()
 
-    try:
-        server.bind((HOST, PORT))
-    except:
-        print(f"Unable to Bind to host {HOST} and port {PORT}")
-        server_running = False
-        return
+        self.txt_text_area = Text(self.root)
+        self.txt_text_area.pack()
 
-    server.listen(LISTENER_LIMIT)
-    while server_running:
-        client, address = server.accept()
-        print(f"Successfully connected to a client {address[0]} {address[1]}")
+        self.data_input_stream = None
+        self.data_output_stream = None
+        self.server_socket = None
+        self.local_socket = None
+        self.message = ""
 
-    server.close()
+        threading.Thread(target=self.initialize_server).start()
 
-def create_ui():
-    global status_var
-    root = tk.Tk()
-    root.title("Server Status")
+        self.root.mainloop()
 
-    label = ttk.Label(root, text="Server Status:")
-    label.grid(row=0, column=0, padx=10, pady=10)
+    def initialize_server(self):
+        try:
+            self.server_socket = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
+            self.server_socket.bind(('localhost', 3012))
+            self.server_socket.listen(1)
 
-    status_var = tk.StringVar()
-    status_var.set("Server not started")
+            self.txt_text_area.insert(END, "Server is Started !\n")
 
-    status_label = ttk.Label(root, textvariable=status_var)
-    status_label.grid(row=0, column=1, padx=10, pady=10)
+            self.local_socket, _ = self.server_socket.accept()
+            self.txt_text_area.insert(END, "Client Connected !\n")
 
-    start_button = ttk.Button(root, text="Start Server", command=start_server_thread)
-    start_button.grid(row=1, column=0, columnspan=2, padx=10, pady=10)
+            self.data_input_stream = self.local_socket.makefile('rb')
+            self.data_output_stream = self.local_socket.makefile('wb')
 
-    root.mainloop()
+            while not self.message == "exit":
+                self.message = self.data_input_stream.readline().strip().decode('utf-8')  # read Client's Msg
+                self.txt_text_area.insert(END, f"Client: {self.message}\n")
 
-def start_server_thread():
-    if not server_running:
-        server_thread = threading.Thread(target=start_server)
-        server_thread.start()
-        status_var.set("Server running on {}:{} with a listener limit of {}".format(HOST, PORT, LISTENER_LIMIT))
+        except Exception as e:
+            print(e)
+        finally:
+            self.close_server()
 
-if __name__ == '__main__':
-    create_ui()
+    def send_message(self):
+        if self.data_output_stream:
+            message = self.txt_input_field.get().strip()
+            self.data_output_stream.write((message + '\n').encode('utf-8'))
+            self.data_output_stream.flush()
+            self.txt_input_field.delete(0, END)
+
+    def close_server(self):
+        if self.local_socket:
+            self.local_socket.close()
+        if self.server_socket:
+            self.server_socket.close()
+        if self.data_input_stream:
+            self.data_input_stream.close()
+        if self.data_output_stream:
+            self.data_output_stream.close()
+
+if __name__ == "__main__":
+    ServerForm()
