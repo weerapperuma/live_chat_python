@@ -27,8 +27,11 @@ class ClientForm:
 
     def initialize_client(self):
         try:
+            # Change 1: Use SOCK_STREAM for TCP connection
             self.remote_socket = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
-            self.remote_socket.connect(('192.168.56.1', 3012))
+
+            # Change 2: Connect to the correct server address and port
+            self.remote_socket.connect(('127.0.0.1', 3012))  # Adjust the IP and port
 
             self.data_output_stream = self.remote_socket.makefile('wb')
             self.data_input_stream = self.remote_socket.makefile('rb')
